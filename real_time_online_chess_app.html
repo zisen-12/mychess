@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChessArena Live - Free Online Multiplayer Chess</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Chess.js Engine -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            boardLight: '#f0d9b5',
+            boardDark: '#b58863',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .square-light { background-color: #f0d9b5; }
+    .square-dark { background-color: #b58863; }
+    .square-selected { background-color: #7b964d !important; }
+    .square-last-move { background-color: rgba(205, 210, 106, 0.8) !important; }
+    .move-dot {
+      width: 30%;
+      height: 30%;
+      border-radius: 50%;
+      background-color: rgba(20, 85, 30, 0.5);
+    }
+    .move-ring {
+      width: 90%;
+      height: 90%;
+      border-radius: 50%;
+      border: 5px solid rgba(20, 85, 30, 0.6);
+    }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.1); }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 3px; }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between">
+
+  <!-- Main Navbar -->
+  <header class="bg-slate-800/90 backdrop-blur border-b border-slate-700/80 px-4 py-3 sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      <div class="flex items-center space-x-3 cursor-pointer" id="logoBtn">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600 to-amber-400 flex items-center justify-center shadow-lg shadow-amber-500/20">
+          <i class="fa-solid fa-chess-king text-slate-950 text-xl"></i>
+        </div>
+        <div>
+          <h1 class="font-bold text-lg leading-tight tracking-wide bg-gradient-to-r from-amber-400 to-amber-200 bg-clip-text text-transparent">
+            ChessArena Live
+          </h1>
+          <p class="text-[10px] text-slate-400">Play Free Multiplayer Chess</p>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3">
+        <div class="text-xs bg-slate-900/80 px-3 py-1.5 rounded-full border border-slate-700 flex items-center space-x-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span id="playerDisplayName" class="font-medium text-slate-200">Guest</span>
+        </div>
+        <button id="editNameBtn" title="Change Name" class="text-slate-400 hover:text-white p-2 rounded-xl bg-slate-700/50 hover:bg-slate-700 border border-slate-600/50 transition">
+          <i class="fa-solid fa-user-pen"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="fixed top-16 right-4 z-50 bg-slate-800 border border-slate-600 text-white px-4 py-3 rounded-xl shadow-2xl hidden transition-all duration-300 transform translate-y-[-10px] flex items-center space-x-3 max-w-sm">
+    <i id="toastIcon" class="fa-solid fa-circle-info text-amber-400 text-lg"></i>
+    <span id="toastMessage" class="text-xs sm:text-sm font-medium">Notification</span>
+  </div>
+
+  <!-- Main Content Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 flex flex-col">
+    
+    <!-- LOBBY VIEW -->
+    <div id="lobbyView" class="flex-1 flex flex-col space-y-6">
+      
+      <!-- Actions Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        
+        <!-- Create Room -->
+        <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-5 shadow-xl flex flex-col justify-between hover:border-amber-500/40 transition">
+          <div>
+            <div class="flex items-center space-x-3 mb-3">
+              <div class="p-3 bg-amber-500/10 text-amber-400 rounded-xl border border-amber-500/20">
+                <i class="fa-solid fa-plus text-lg"></i>
+              </div>
+              <h2 class="text-base font-bold text-white">Create Room</h2>
+            </div>
+            <p class="text-slate-400 text-xs leading-relaxed mb-4">Start a new chess match and invite a friend using a room code.</p>
+            
+            <div class="space-y-3">
+              <div>
+                <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Room Name</label>
+                <input id="createRoomNameInput" type="text" placeholder="e.g. Blitz Battle" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 text-slate-100 transition">
+              </div>
+              <div class="flex items-center justify-between py-1">
+                <span class="text-xs font-semibold text-slate-300">Public Room</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="createPublicToggle" class="sr-only peer" checked>
+                  <div class="w-10 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <button id="createRoomBtn" class="mt-5 w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold py-2.5 px-4 rounded-xl shadow-md transition flex items-center justify-center space-x-2 text-xs">
+            <i class="fa-solid fa-chess-board"></i>
+            <span>Create Match</span>
+          </button>
+        </div>
+
+        <!-- Join Code -->
+        <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-5 shadow-xl flex flex-col justify-between hover:border-blue-500/40 transition">
+          <div>
+            <div class="flex items-center space-x-3 mb-3">
+              <div class="p-3 bg-blue-500/10 text-blue-400 rounded-xl border border-blue-500/20">
+                <i class="fa-solid fa-key text-lg"></i>
+              </div>
+              <h2 class="text-base font-bold text-white">Join by Code</h2>
+            </div>
+            <p class="text-slate-400 text-xs leading-relaxed mb-4">Have an invite code from a friend? Enter it below to join.</p>
+            
+            <div class="space-y-3">
+              <div>
+                <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Room Code</label>
+                <input id="joinCodeInput" type="text" placeholder="e.g. 7X8K2P" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-mono tracking-widest uppercase focus:outline-none focus:border-blue-500 text-slate-100 transition">
+              </div>
+            </div>
+          </div>
+
+          <button id="joinCodeBtn" class="mt-5 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-md transition flex items-center justify-center space-x-2 text-xs">
+            <i class="fa-solid fa-right-to-bracket"></i>
+            <span>Enter Match</span>
+          </button>
+        </div>
+
+        <!-- How To Play Info -->
+        <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
+          <div>
+            <div class="flex items-center space-x-3 mb-3">
+              <div class="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
+                <i class="fa-solid fa-gamepad text-lg"></i>
+              </div>
+              <h2 class="text-base font-bold text-white">Features Included</h2>
+            </div>
+            <ul class="text-slate-300 text-xs space-y-2.5">
+              <li class="flex items-start space-x-2">
+                <i class="fa-solid fa-circle-check text-emerald-400 mt-0.5"></i>
+                <span>Standard chess engine with legal move validation & promotion.</span>
+              </li>
+              <li class="flex items-start space-x-2">
+                <i class="fa-solid fa-circle-check text-emerald-400 mt-0.5"></i>
+                <span>Live move logs, captured pieces counter & move highlights.</span>
+              </li>
+              <li class="flex items-start space-x-2">
+                <i class="fa-solid fa-circle-check text-emerald-400 mt-0.5"></i>
+                <span>In-game live chat, draw offers, resignations, and undos.</span>
+              </li>
+            </ul>
+          </div>
+          <div class="mt-4 p-2.5 bg-slate-900/80 rounded-xl border border-slate-700/60 text-[11px] text-slate-400 flex justify-between items-center">
+            <span>Server Mode: <strong id="serverStatusText" class="text-emerald-400">Local Engine Active</strong></span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Public Rooms Table -->
+      <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-5 shadow-xl flex-1 flex flex-col">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-list text-amber-400"></i>
+            <h2 class="text-base font-bold text-white">Active Rooms Directory</h2>
+          </div>
+          <button id="refreshRoomsBtn" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-xl border border-slate-600 transition flex items-center space-x-1.5">
+            <i class="fa-solid fa-rotate-right"></i>
+            <span>Refresh</span>
+          </button>
+        </div>
+
+        <div class="overflow-x-auto flex-1">
+          <table class="w-full text-left text-xs text-slate-300">
+            <thead class="bg-slate-900/80 text-[10px] uppercase font-bold text-slate-400 border-b border-slate-700">
+              <tr>
+                <th class="py-3 px-4">Room Name</th>
+                <th class="py-3 px-4">Code</th>
+                <th class="py-3 px-4">Host</th>
+                <th class="py-3 px-4">Players</th>
+                <th class="py-3 px-4">Status</th>
+                <th class="py-3 px-4 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody id="roomsListTable" class="divide-y divide-slate-700/50">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- GAME VIEW -->
+    <div id="gameView" class="flex-1 flex flex-col lg:flex-row gap-6 hidden">
+      
+      <!-- Board Column -->
+      <div class="flex-1 flex flex-col items-center justify-center space-y-3">
+        
+        <!-- Header Bar -->
+        <div class="w-full max-w-[540px] flex items-center justify-between bg-slate-800/90 p-3 rounded-2xl border border-slate-700/80 shadow-md">
+          <div class="flex items-center space-x-2">
+            <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Room:</span>
+            <span id="currentGameCode" class="font-mono text-amber-400 font-bold tracking-widest text-sm">------</span>
+            <button id="copyCodeHeaderBtn" class="text-xs text-slate-400 hover:text-white p-1 rounded bg-slate-700/60 transition" title="Copy Code">
+              <i class="fa-solid fa-copy"></i>
+            </button>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button id="shareCodeBtn" class="text-xs bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 px-3 py-1 rounded-xl border border-amber-500/30 font-semibold transition flex items-center gap-1">
+              <i class="fa-solid fa-share-nodes"></i> Share
+            </button>
+            <button id="leaveGameBtn" class="text-xs bg-slate-700 hover:bg-rose-600 text-slate-200 hover:text-white px-3 py-1 rounded-xl border border-slate-600 transition flex items-center gap-1">
+              <i class="fa-solid fa-right-from-bracket"></i> Leave
+            </button>
+          </div>
+        </div>
+
+        <!-- Top Opponent Display -->
+        <div class="w-full max-w-[540px] bg-slate-800/90 px-4 py-2.5 rounded-2xl border border-slate-700/80 flex items-center justify-between shadow-md">
+          <div class="flex items-center space-x-3">
+            <div id="topPlayerIcon" class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-xs text-slate-200 border border-slate-600">
+              B
+            </div>
+            <div>
+              <div class="flex items-center space-x-2">
+                <span id="topPlayerName" class="font-semibold text-slate-200 text-xs">Opponent</span>
+                <span id="topPlayerTag" class="text-[9px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded font-mono uppercase">BLACK</span>
+              </div>
+              <div id="topCapturedContainer" class="flex items-center space-x-1 h-4 mt-0.5"></div>
+            </div>
+          </div>
+          <span id="topTurnBadge" class="hidden text-[10px] bg-emerald-500/20 text-emerald-400 px-2.5 py-1 rounded-full font-semibold border border-emerald-500/30 animate-pulse">
+            Turn
+          </span>
+        </div>
+
+        <!-- Chessboard Container -->
+        <div class="relative w-full max-w-[540px] aspect-square rounded-2xl overflow-hidden shadow-2xl border-4 border-slate-800 bg-slate-800">
+          <div id="chessboard" class="grid grid-cols-8 grid-rows-8 w-full h-full">
+            <!-- Rendered via JS -->
+          </div>
+
+          <!-- Game Over Overlay -->
+          <div id="gameOverOverlay" class="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-30 hidden">
+            <div class="w-16 h-16 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-3xl mb-4 border border-amber-500/40 shadow-xl">
+              <i class="fa-solid fa-trophy"></i>
+            </div>
+            <h2 id="gameOverTitle" class="text-2xl font-black text-white mb-1">Game Over</h2>
+            <p id="gameOverSubtitle" class="text-slate-300 text-xs mb-6 max-w-xs">Match completed.</p>
+            <div class="flex items-center space-x-3">
+              <button id="rematchBtn" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs transition flex items-center space-x-2">
+                <i class="fa-solid fa-rotate-right"></i>
+                <span>Restart Game</span>
+              </button>
+              <button id="leaveRoomBtn" class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold px-4 py-2 rounded-xl text-xs transition">
+                Exit to Lobby
+              </button>
+            </div>
+          </div>
+
+          <!-- Promotion Modal -->
+          <div id="promotionModal" class="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-4 z-40 hidden">
+            <h3 class="text-xs font-bold text-white uppercase tracking-wider mb-3">Choose Promotion</h3>
+            <div id="promotionOptions" class="flex items-center space-x-3"></div>
+          </div>
+        </div>
+
+        <!-- Bottom Player Display -->
+        <div class="w-full max-w-[540px] bg-slate-800/90 px-4 py-2.5 rounded-2xl border border-slate-700/80 flex items-center justify-between shadow-md">
+          <div class="flex items-center space-x-3">
+            <div id="bottomPlayerIcon" class="w-8 h-8 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-xs border border-amber-500/40">
+              W
+            </div>
+            <div>
+              <div class="flex items-center space-x-2">
+                <span id="bottomPlayerName" class="font-semibold text-slate-200 text-xs">You</span>
+                <span id="bottomPlayerTag" class="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-mono uppercase">WHITE</span>
+              </div>
+              <div id="bottomCapturedContainer" class="flex items-center space-x-1 h-4 mt-0.5"></div>
+            </div>
+          </div>
+          <span id="bottomTurnBadge" class="hidden text-[10px] bg-emerald-500/20 text-emerald-400 px-2.5 py-1 rounded-full font-semibold border border-emerald-500/30 animate-pulse">
+            Your Turn
+          </span>
+        </div>
+
+        <!-- In-Game Actions -->
+        <div class="w-full max-w-[540px] grid grid-cols-3 gap-2 pt-1">
+          <button id="requestUndoBtn" class="bg-slate-
